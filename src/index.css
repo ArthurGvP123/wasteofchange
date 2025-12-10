@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-woc-darker text-woc-text; /* Background utama Hitam Pekat */
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden; /* Mencegah scroll horizontal */
+}
+
+@layer components {
+  /* Input yang lebih compact (py-2.5) dan text-sm */
+  .input-compact {
+    @apply w-full px-3 py-2.5 rounded-lg bg-woc-dark border border-slate-700 text-white text-sm outline-none transition-all placeholder-slate-600;
+  }
+  .input-compact:focus {
+    @apply border-woc-tosca ring-1 ring-woc-tosca;
+  }
+  
+  /* Tombol yang lebih slim */
+  .btn-compact {
+    @apply w-full py-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-2 text-sm;
+  }
+}
+
+/* Custom Scrollbar yang tipis jika terpaksa ada scroll */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #020617; 
+}
+::-webkit-scrollbar-thumb {
+  background: #334155; 
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #14b8a6; 
+}
+
+select option {
+  background-color: #020617;
+  color: white;
+  padding: 8px;
+}
