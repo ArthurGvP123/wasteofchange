@@ -26,4 +26,5 @@ dist-ssr
 .env
 .env.local
 .firebaserc
+.firebase
 node_modules
