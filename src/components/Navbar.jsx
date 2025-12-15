@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { 
   Recycle, ChevronDown, User, LogOut, History, LogIn, ArrowRight, 
-  LayoutDashboard, Truck, Home, Building2 // Tambahkan import Building2
+  LayoutDashboard, Truck, Home, Building2, Menu, UserPlus // Tambah Menu & UserPlus
 } from "lucide-react"; 
 import { motion, AnimatePresence } from "framer-motion";
 import LogoutModal from "./LogoutModal";
@@ -53,7 +53,7 @@ export default function Navbar() {
           
           {/* LOGIC TOMBOL KANAN */}
           {currentUser ? (
-            // --- USER SUDAH LOGIN ---
+            // --- SKENARIO 1: USER SUDAH LOGIN ---
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -89,67 +89,30 @@ export default function Navbar() {
                       <p className="text-xs text-slate-400">{currentUser?.email}</p>
                     </div>
 
-                    {/* MENU ITEMS */}
-                    <DropdownItem 
-                      to="/" 
-                      icon={<Home size={16}/>} 
-                      label="Beranda" 
-                      onClick={() => setIsDropdownOpen(false)} 
-                    />
-
-                    <DropdownItem 
-                      to="/profil" 
-                      icon={<User size={16}/>} 
-                      label="Profil Saya" 
-                      onClick={() => setIsDropdownOpen(false)} 
-                    />
+                    {/* MENU ITEMS (LOGGED IN) */}
+                    <DropdownItem to="/" icon={<Home size={16}/>} label="Beranda" onClick={() => setIsDropdownOpen(false)} />
+                    <DropdownItem to="/profil" icon={<User size={16}/>} label="Profil Saya" onClick={() => setIsDropdownOpen(false)} />
 
                     <div className="border-t border-slate-800 my-1 mx-2"></div>
 
-                    {/* --- MENU KHUSUS PENGELOLA --- */}
                     {userRole === 'pengelola' && (
                       <>
-                        <DropdownItem 
-                          to="/manager/dashboard" 
-                          icon={<LayoutDashboard size={16}/>} 
-                          label="Dashboard" 
-                          onClick={() => setIsDropdownOpen(false)} 
-                        />
-                        {/* TOMBOL BARU: KELOLA AFILIASI */}
-                        <DropdownItem 
-                          to="/manager/affiliate" 
-                          icon={<Building2 size={16}/>} 
-                          label="Kelola Afiliasi" 
-                          onClick={() => setIsDropdownOpen(false)} 
-                        />
+                        <DropdownItem to="/manager/dashboard" icon={<LayoutDashboard size={16}/>} label="Dashboard" onClick={() => setIsDropdownOpen(false)} />
+                        <DropdownItem to="/manager/affiliate" icon={<Building2 size={16}/>} label="Kelola Afiliasi" onClick={() => setIsDropdownOpen(false)} />
                       </>
                     )}
 
-                    {/* --- MENU KHUSUS PENGGUNA --- */}
                     {userRole === 'pengguna' && (
                       <>
-                        <DropdownItem 
-                          to="/setor" 
-                          icon={<Truck size={16}/>} 
-                          label="Setor Sampah" 
-                          onClick={() => setIsDropdownOpen(false)} 
-                        />
-                        <DropdownItem 
-                          to="/riwayat" 
-                          icon={<History size={16}/>} 
-                          label="Riwayat Penyetoran" 
-                          onClick={() => setIsDropdownOpen(false)} 
-                        />
+                        <DropdownItem to="/setor" icon={<Truck size={16}/>} label="Setor Sampah" onClick={() => setIsDropdownOpen(false)} />
+                        <DropdownItem to="/riwayat" icon={<History size={16}/>} label="Riwayat Penyetoran" onClick={() => setIsDropdownOpen(false)} />
                       </>
                     )}
                     
                     <div className="border-t border-slate-800 my-1"></div>
                     
                     <button 
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        setIsLogoutModalOpen(true);
-                      }}
+                      onClick={() => { setIsDropdownOpen(false); setIsLogoutModalOpen(true); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-500 transition-colors text-left"
                     >
                       <LogOut size={16} /> Keluar Akun
@@ -159,21 +122,53 @@ export default function Navbar() {
               </AnimatePresence>
             </div>
           ) : (
-            // --- USER BELUM LOGIN ---
-            <div className="flex items-center gap-4">
-              <Link 
-                to="/login"
-                className="text-slate-300 hover:text-white font-medium text-sm transition-colors hidden sm:block"
-              >
-                Masuk
-              </Link>
-              <Link 
-                to="/register"
-                className="px-4 py-2 rounded-lg bg-woc-tosca hover:bg-woc-toscaHover text-woc-darker font-bold text-sm transition-all shadow-lg shadow-woc-tosca/20 flex items-center gap-2"
-              >
-                Daftar <ArrowRightIcon className="w-4 h-4" />
-              </Link>
-            </div>
+            // --- SKENARIO 2: USER BELUM LOGIN ---
+            <>
+              {/* TAMPILAN DESKTOP (Hidden on Mobile) */}
+              <div className="hidden sm:flex items-center gap-4">
+                <Link to="/login" className="text-slate-300 hover:text-white font-medium text-sm transition-colors">
+                  Masuk
+                </Link>
+                <Link to="/register" className="px-4 py-2 rounded-lg bg-woc-tosca hover:bg-woc-toscaHover text-woc-darker font-bold text-sm transition-all shadow-lg shadow-woc-tosca/20 flex items-center gap-2">
+                  Daftar <ArrowRightIcon className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {/* TAMPILAN MOBILE (Visible only on Mobile) */}
+              <div className="sm:hidden relative" ref={dropdownRef}>
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="p-2 rounded-lg bg-slate-800 text-woc-tosca border border-slate-700 hover:bg-slate-700 transition-colors"
+                >
+                  <Menu size={20} />
+                </button>
+
+                <AnimatePresence>
+                  {isDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.1 }}
+                      className="absolute right-0 top-full mt-2 w-48 bg-woc-dark border border-slate-700 rounded-xl shadow-xl overflow-hidden py-2"
+                    >
+                      <DropdownItem 
+                        to="/login" 
+                        icon={<LogIn size={16}/>} 
+                        label="Masuk" 
+                        onClick={() => setIsDropdownOpen(false)} 
+                      />
+                      <DropdownItem 
+                        to="/register" 
+                        icon={<UserPlus size={16}/>} 
+                        label="Daftar Akun" 
+                        onClick={() => setIsDropdownOpen(false)} 
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </>
           )}
         </div>
       </nav>

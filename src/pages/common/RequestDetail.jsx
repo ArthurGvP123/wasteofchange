@@ -6,8 +6,8 @@ import { db } from "../../firebase";
 import Navbar from "../../components/Navbar";
 import SuccessModal from "../../components/SuccessModal";
 import ConfirmModal from "../../components/ConfirmModal";
-import { PageTransition, Button } from "../../components/AnimatedUI";
-import { ArrowLeft, Calendar, MapPin, Scale, User, Building2, Clock, CheckCircle, Truck, MessageCircle, AlertTriangle, Check, Coins, Wallet, Save, Banknote } from "lucide-react";
+import { Button } from "../../components/AnimatedUI";
+import { ArrowLeft, Calendar, MapPin, Scale, User, Building2, Clock, CheckCircle, Truck, MessageCircle, AlertTriangle, Check, Coins, Wallet, Save, Banknote, List } from "lucide-react";
 
 // --- MAP IMPORTS ---
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -54,7 +54,6 @@ export default function RequestDetail() {
   const navigate = useNavigate();
   const { currentUser, userRole } = useAuth();
   
-  // Data States
   const [data, setData] = useState(null);
   const [affiliateData, setAffiliateData] = useState(null);
   const [contactPhone, setContactPhone] = useState("");
@@ -69,8 +68,6 @@ export default function RequestDetail() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
-  
-  // State Pesan & Judul Modal Dinamis
   const [successMessage, setSuccessMessage] = useState("");
   const [successTitle, setSuccessTitle] = useState("Berhasil!");
 
@@ -92,8 +89,13 @@ export default function RequestDetail() {
         setData(depositData);
         setSelectedProgress(depositData.progressStep || "persiapan");
         
-        setInputPoints(depositData.rewardPoints || 0);
-        setInputAmount(depositData.rewardAmount || 0);
+        // Auto-fill input reward dengan estimasi sistem jika belum ada reward manual
+        // Namun, jika sudah ada reward manual (disimpan pengelola), gunakan itu.
+        const currentPoints = depositData.rewardPoints !== undefined ? depositData.rewardPoints : (depositData.estimasiPoin || 0);
+        const currentAmount = depositData.rewardAmount !== undefined ? depositData.rewardAmount : (depositData.estimasiUang || 0);
+        
+        setInputPoints(currentPoints);
+        setInputAmount(currentAmount);
 
         if (depositData.afiliasiId) {
           const affSnap = await getDoc(doc(db, "affiliations", depositData.afiliasiId));
@@ -138,7 +140,6 @@ export default function RequestDetail() {
     } catch (err) { alert("Gagal update status."); }
   };
 
-  // --- LOGIC SIMPAN REWARD (DENGAN POP UP) ---
   const handleSaveRewards = async () => {
     try {
       await updateDoc(doc(db, "deposits", id), {
@@ -146,18 +147,14 @@ export default function RequestDetail() {
         rewardAmount: Number(inputAmount)
       });
       setData(prev => ({ ...prev, rewardPoints: Number(inputPoints), rewardAmount: Number(inputAmount) }));
-      
-      // TAMPILKAN MODAL SUKSES
       setSuccessTitle("Reward Disimpan!");
-      setSuccessMessage("Rincian poin dan nominal berhasil disimpan. Data ini akan ditransfer ke akun pengguna setelah transaksi diselesaikan.");
+      setSuccessMessage("Rincian poin dan nominal berhasil disimpan.");
       setIsSuccessOpen(true);
-      
     } catch (err) {
       alert("Gagal menyimpan reward.");
     }
   };
 
-  // --- LOGIC FINALISASI USER ---
   const handleFinalize = async () => {
     try {
       setIsFinalizeModalOpen(false);
@@ -171,27 +168,22 @@ export default function RequestDetail() {
         if (!depositDoc.exists()) throw "Deposit tidak ditemukan!";
         if (depositDoc.data().status === "completed") throw "Transaksi sudah selesai sebelumnya!";
 
-        transaction.update(depositRef, { 
-          status: "completed", 
-          completedAt: new Date() 
-        });
+        transaction.update(depositRef, { status: "completed", completedAt: new Date() });
 
-        const pointsToAdd = Number(data.rewardPoints) || 0;
-        const amountToAdd = Number(data.rewardAmount) || 0;
+        // Gunakan reward manual jika ada, jika tidak gunakan estimasi sistem
+        const finalPoints = data.rewardPoints !== undefined ? Number(data.rewardPoints) : Number(data.estimasiPoin || 0);
+        const finalAmount = data.rewardAmount !== undefined ? Number(data.rewardAmount) : Number(data.estimasiUang || 0);
 
         transaction.update(userRef, {
-          totalPoints: increment(pointsToAdd),
-          totalEarnings: increment(amountToAdd)
+          totalPoints: increment(finalPoints),
+          totalEarnings: increment(finalAmount)
         });
       });
 
       setData(prev => ({ ...prev, status: "completed" }));
-      
-      // TAMPILKAN MODAL SUKSES UNTUK USER
       setSuccessTitle("Transaksi Selesai!");
-      setSuccessMessage("Penyetoran selesai! Poin dan Saldo telah ditambahkan ke akun Anda.");
+      setSuccessMessage("Poin dan Saldo telah ditambahkan ke akun Anda.");
       setIsSuccessOpen(true);
-      
     } catch (err) { 
       console.error(err);
       alert("Gagal menyelesaikan transaksi: " + err); 
@@ -206,13 +198,7 @@ export default function RequestDetail() {
     <div className="min-h-screen bg-woc-darker text-white font-sans">
       <Navbar />
       
-      {/* MODAL SUKSES DINAMIS */}
-      <SuccessModal 
-        isOpen={isSuccessOpen} 
-        onClose={() => setIsSuccessOpen(false)} 
-        title={successTitle} 
-        message={successMessage} 
-      />
+      <SuccessModal isOpen={isSuccessOpen} onClose={() => setIsSuccessOpen(false)} title={successTitle} message={successMessage} />
       
       <ConfirmModal 
         isOpen={isConfirmModalOpen}
@@ -228,7 +214,7 @@ export default function RequestDetail() {
         onClose={() => setIsFinalizeModalOpen(false)}
         onConfirm={handleFinalize}
         title="Selesaikan Penyetoran?"
-        message={`Anda akan menerima ${data.rewardPoints || 0} Poin dan ${formatRupiah(data.rewardAmount || 0)}. Transaksi tidak bisa diubah setelah ini.`}
+        message={`Anda akan menerima ${data.rewardPoints ?? data.estimasiPoin} Poin dan ${formatRupiah(data.rewardAmount ?? data.estimasiUang)}. Transaksi tidak bisa diubah setelah ini.`}
         confirmText="Ya, Terima & Selesai"
       />
 
@@ -267,35 +253,85 @@ export default function RequestDetail() {
               </div>
             </div>
 
-            {/* DETAIL TRANSAKSI */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-woc-dark p-5 rounded-xl border border-slate-800">
-                <label className="text-xs text-slate-500 font-bold uppercase mb-2 block flex items-center gap-2"><User size={14}/> Detail Pengguna</label>
-                <p className="font-bold text-white">{data.userName}</p>
-                <p className="text-sm text-slate-400">{data.userEmail}</p>
-                <Button onClick={handleWhatsApp} variant="outline" className="mt-4 w-full !py-2 !text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10">
-                  <MessageCircle size={14}/> Hubungi via WhatsApp
-                </Button>
-              </div>
+            {/* DETAIL ITEMS SAMPAH (BARU) */}
+            <div className="bg-woc-dark p-5 rounded-xl border border-slate-800">
+                <label className="text-xs text-slate-500 font-bold uppercase mb-4 block flex items-center gap-2">
+                    <List size={14}/> Rincian Item Sampah
+                </label>
+                
+                {data.wasteItems && data.wasteItems.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
+                                <tr>
+                                    <th className="px-4 py-3 rounded-l-lg">Jenis Sampah</th>
+                                    <th className="px-4 py-3 text-right">Berat</th>
+                                    <th className="px-4 py-3 text-right text-emerald-500">Est. Uang</th>
+                                    <th className="px-4 py-3 text-right text-yellow-500 rounded-r-lg">Est. Poin</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {data.wasteItems.map((item, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-800/30">
+                                        <td className="px-4 py-3">
+                                            <p className="font-bold text-white">{item.typeLabel}</p>
+                                            <p className="text-[10px] text-slate-500">{item.categoryLabel}</p>
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-mono text-slate-300">{item.weight} Kg</td>
+                                        <td className="px-4 py-3 text-right font-mono text-emerald-400">{formatRupiah(item.estMoney)}</td>
+                                        <td className="px-4 py-3 text-right font-mono text-yellow-400">{item.estPoints}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-slate-800/30 font-bold text-white border-t-2 border-slate-700">
+                                <tr>
+                                    <td className="px-4 py-3">Total Estimasi</td>
+                                    <td className="px-4 py-3 text-right">{data.estimasiBerat} Kg</td>
+                                    <td className="px-4 py-3 text-right text-emerald-400">{formatRupiah(data.estimasiUang || 0)}</td>
+                                    <td className="px-4 py-3 text-right text-yellow-400">{data.estimasiPoin || 0}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                ) : (
+                    // Fallback untuk data lama (hanya berat total)
+                    <div className="flex items-center justify-between p-4 bg-slate-900/30 rounded-lg">
+                        <span className="text-slate-400">Total Berat (Legacy)</span>
+                        <span className="text-xl font-bold text-white">{data.estimasiBerat} Kg</span>
+                    </div>
+                )}
+            </div>
 
-              <div className="bg-woc-dark p-5 rounded-xl border border-slate-800">
-                <label className="text-xs text-slate-500 font-bold uppercase mb-2 block flex items-center gap-2"><Scale size={14}/> Informasi Sampah</label>
-                <p className="text-3xl font-bold text-woc-tosca mb-1">{data.estimasiBerat} <span className="text-sm font-normal text-slate-400">Kg</span></p>
-                <p className="text-xs text-slate-500 flex items-center gap-1"><Calendar size={12}/> {new Date(data.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-              </div>
+            {/* INFO USER */}
+            <div className="bg-woc-dark p-5 rounded-xl border border-slate-800">
+                <label className="text-xs text-slate-500 font-bold uppercase mb-2 block flex items-center gap-2"><User size={14}/> Pengaju</label>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <p className="font-bold text-white">{data.userName}</p>
+                        <p className="text-sm text-slate-400">{data.userEmail}</p>
+                    </div>
+                    <Button onClick={handleWhatsApp} variant="outline" className="!w-auto !py-2 !px-4 !text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10">
+                        <MessageCircle size={14}/> WhatsApp
+                    </Button>
+                </div>
             </div>
 
             {/* SEKSI REWARD */}
             <div className="bg-gradient-to-r from-slate-900 to-woc-darker p-6 rounded-xl border border-yellow-500/20 shadow-lg">
-              <h3 className="text-yellow-500 font-bold mb-4 flex items-center gap-2"><Coins size={20}/> Rincian Pendapatan</h3>
+              <h3 className="text-yellow-500 font-bold mb-4 flex items-center gap-2"><Coins size={20}/> Reward Final</h3>
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <p className="text-xs text-slate-400 mb-1">Total Poin</p>
-                  <p className="text-2xl font-bold text-white">{data.rewardPoints || 0} <span className="text-xs font-normal text-slate-500">Pts</span></p>
+                  <p className="text-xs text-slate-400 mb-1">Total Poin Diterima</p>
+                  <p className="text-2xl font-bold text-white">
+                    {data.rewardPoints !== undefined ? data.rewardPoints : (data.estimasiPoin || 0)} 
+                    <span className="text-xs font-normal text-slate-500 ml-1">Pts</span>
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 mb-1">Total Uang Tunai</p>
-                  <p className="text-2xl font-bold text-emerald-400">{formatRupiah(data.rewardAmount || 0)}</p>
+                  <p className="text-xs text-slate-400 mb-1">Total Uang Diterima</p>
+                  <p className="text-2xl font-bold text-emerald-400">
+                    {formatRupiah(data.rewardAmount !== undefined ? data.rewardAmount : (data.estimasiUang || 0))}
+                  </p>
                 </div>
               </div>
               {data.status !== 'completed' && (
@@ -313,7 +349,10 @@ export default function RequestDetail() {
               <div className="space-y-6">
                 {/* 1. Form Input Reward */}
                 <div className="bg-woc-dark border border-slate-700 p-5 rounded-2xl shadow-lg">
-                  <h3 className="text-white font-bold mb-4 flex items-center gap-2 text-sm"><Banknote size={16} className="text-emerald-400"/> Input Reward</h3>
+                  <h3 className="text-white font-bold mb-4 flex items-center gap-2 text-sm"><Banknote size={16} className="text-emerald-400"/> Input Reward Real</h3>
+                  <p className="text-[10px] text-slate-400 mb-4">
+                    Masukkan nilai final jika berbeda dari estimasi sistem (misal: karena berat bersih berbeda).
+                  </p>
                   <div className="space-y-3">
                     <div>
                       <label className="text-[10px] text-slate-400 mb-1 block">Skor Poin</label>
